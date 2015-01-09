@@ -196,7 +196,7 @@ public class PullListView extends ListView {
                 break;
 
             case MotionEvent.ACTION_MOVE:
-                if (!checkCanPull() || state == REFRESHING) {
+                if (!checkCanPullDown() || state == REFRESHING) {
                     break;
                 }
                 float deltaY = tempY - startY;
@@ -356,7 +356,7 @@ public class PullListView extends ListView {
         child.measure(childWidthSpec, childHeightSpec);
     }
 
-    private boolean checkCanPull() {
+    private boolean checkCanPullDown() {
         return getFirstVisiblePosition() == 0;
     }
 
