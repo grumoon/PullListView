@@ -357,7 +357,10 @@ public class PullListView extends ListView {
     }
 
     private boolean checkCanPullDown() {
-        return getFirstVisiblePosition() == 0;
+        if (getFirstVisiblePosition() > 0) {
+            return false;
+        }
+        return getScrollY() == 0;
     }
 
     public void setCanRefresh(boolean canRefresh) {
