@@ -1,11 +1,72 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_height="match_parent"
     android:layout_width="match_parent"
-    android:layout_height="match_parent" >
+    android:orientation="vertical">
 
-    <com.grumoon.pulllistview.PullListView
-        android:id="@+id/plv_main"
+    <android.support.v7.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_height="wrap_content"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:minHeight="?attr/actionBarSize"
+        android:background="?attr/colorPrimary">
 
-</RelativeLayout>
+    </android.support.v7.widget.Toolbar>
+
+    <android.support.v4.widget.DrawerLayout
+        android:id="@+id/dl_main"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <FrameLayout
+            android:id="@+id/dl_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <LinearLayout
+            android:id="@+id/dl_menu"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="start"
+            android:orientation="vertical"
+            android:background="#ffffff"
+            android:padding="5dp">
+
+            <Button
+                android:id="@+id/btn_auto_get_more"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:layout_marginTop="5dp"
+                android:textColor="@color/textColorPrimary_dark"
+                android:text="默认模式（自动加载更多）" />
+
+            <Button
+                android:id="@+id/btn_click_get_more"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:layout_marginTop="5dp"
+                android:textColor="@color/textColorPrimary_dark"
+                android:text="点击加载更多" />
+
+            <Button
+                android:id="@+id/btn_add_extra_header1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:layout_marginTop="5dp"
+                android:textColor="@color/textColorPrimary_dark"
+                android:text="添加额外头部1" />
+
+            <Button
+                android:id="@+id/btn_add_extra_header2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:layout_marginTop="5dp"
+                android:textColor="@color/textColorPrimary_dark"
+                android:text="添加额外头部2" />
+        </LinearLayout>
+
+    </android.support.v4.widget.DrawerLayout>
+</LinearLayout>
