@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="PullListView">
+        <attr name="getMoreType">
+            <enum name="auto" value="0" />
+            <enum name="click" value="1" />
+        </attr>
+        <attr name="addPullHeaderByUser" format="boolean" />
+    </declare-styleable>
+</resources>

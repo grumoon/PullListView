@@ -1,6 +1,7 @@
 package com.grumoon.pulllistview;
 
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -9,6 +10,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.LinearInterpolator;
 import android.view.animation.RotateAnimation;
+import android.widget.AbsListView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
@@ -18,12 +20,28 @@ import android.widget.TextView;
 
 public class PullListView extends ListView {
 
-    // 下拉刷新接口
+    /**
+     * 加载更多类型<br/>
+     * 滑动到底部自动加载更多
+     */
+    public static final int GET_MORE_TYPE_AUTO = 0;
+
+    /**
+     * 加载更多类型<br/>
+     * 点击触发加载更多
+     */
+    public static final int GET_MORE_TYPE_CLICK = 1;
+
+    /**
+     * 下拉刷新接口
+     */
     public interface OnRefreshListener {
         public void onRefresh();
     }
 
-    // 加载更多接口
+    /**
+     * 加载更多接口
+     */
     public interface OnGetMoreListener {
         public void onGetMore();
     }
@@ -56,7 +74,7 @@ public class PullListView extends ListView {
     // 下拉图标
     private ImageView ivHeadArrow;
 
-    // 刷新中忙碌框
+    // 正在刷新忙碌框
     private ProgressBar pbHeadRefreshing;
 
     // 加载更多视图（底部视图）
@@ -76,11 +94,39 @@ public class PullListView extends ListView {
     // 头部高度
     private int headViewHeight;
 
+
+    // 状态
+    private int state = NONE;
+
+    /**
+     * 标志初始位置已经纪录，一次滑动中纪录一次。
+     * 为了更好的处理滑动，根据需要，不在ACTION_DOWN纪录初始位置<br/>
+     * 而是在ACTION_MOVE第一次符合条件的触发中纪录初始位置
+     */
+    private boolean isStartRecorded = false;
+
     // 用于记录滑动开始时候的Y值
     private float startY;
 
-    // 状态
-    private int state;
+    /**
+     * 自定义属性，是否由用户自己触发添加下拉刷新Header<br/>
+     * <p/>
+     * 默认为false，下拉刷新头部会在构造函数中添加到PullListView中，作为第一个Header在最上部<br/>
+     * 如果用户添加了额外的Header，额外的Header会在下拉刷新的头部之下。<br/>
+     * 用户有时需要控制添加头部的顺序,可以将此属性设置为true，并在合适的时机，主动调用addPullHeader()方法，去添加下拉刷新Header
+     */
+    private boolean addPullHeaderByUser = false;
+
+    // 是否已经添加了下拉刷新header标志
+    private boolean addPullHeaderFlag = false;
+
+
+    /**
+     * 自定义属性<br/>
+     * 加载更多触发方式<br/>
+     * 默认为滑动到底部自动加载更多
+     */
+    private int getMoreType = GET_MORE_TYPE_AUTO;
 
     /**
      * 判断下拉刷新状态是由初始状态转变而来，还是由松开刷新状态转变而来<br/>
@@ -104,7 +150,7 @@ public class PullListView extends ListView {
 
     public PullListView(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
-        init(context);
+        init(context, attrs);
     }
 
     /**
@@ -112,10 +158,16 @@ public class PullListView extends ListView {
      *
      * @param context
      */
-    private void init(Context context) {
+    private void init(Context context, AttributeSet attrs) {
 
+
+        TypedArray arr = context.obtainStyledAttributes(attrs, R.styleable.PullListView, 0, 0);
+        if (arr != null) {
+            addPullHeaderByUser = arr.getBoolean(R.styleable.PullListView_addPullHeaderByUser, addPullHeaderByUser);
+            getMoreType = arr.getInt(R.styleable.PullListView_getMoreType, GET_MORE_TYPE_AUTO);
+            arr.recycle();
+        }
         initAnimation();
-
         inflater = LayoutInflater.from(context);
 
         /**
@@ -129,18 +181,41 @@ public class PullListView extends ListView {
         headViewHeight = headView.getMeasuredHeight();
         headView.setPadding(0, -headViewHeight, 0, 0);
         headView.invalidate();
-        addHeaderView(headView, null, false);
+
+        if (!addPullHeaderByUser) {
+            addHeaderView(headView, null, false);
+            addPullHeaderFlag = true;
+        }
 
         /**
          * 底部
          */
-        footView = inflater.inflate(R.layout.pull_list_view_foot, null);
+        footView = inflater.inflate(R.layout.pull_list_view_foot, this, false);
         tvFootTitle = (TextView) footView.findViewById(R.id.tv_foot_title);
         pbFootRefreshing = (ProgressBar) footView.findViewById(R.id.pb_foot_refreshing);
         footView.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-                getMore();
+                if (getMoreType == GET_MORE_TYPE_CLICK) {
+                    getMore();
+                }
+            }
+        });
+
+
+        // 滑动监听
+        setOnScrollListener(new OnScrollListener() {
+
+            @Override
+            public void onScrollStateChanged(AbsListView view, int scrollState) {
+                doOnScrollStateChanged(view, scrollState);
+
+            }
+
+            @Override
+            public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
+                doOnScroll(view, firstVisibleItem, visibleItemCount, totalItemCount);
+
             }
         });
 
@@ -177,9 +252,6 @@ public class PullListView extends ListView {
 
         switch (action) {
             case MotionEvent.ACTION_DOWN:
-                // 只有在滑动到第一个item才处理
-                startY = tempY;
-                Log.v(TAG, "在按下时候记录初始位置");
                 break;
 
             case MotionEvent.ACTION_CANCEL:
@@ -192,6 +264,7 @@ public class PullListView extends ListView {
                     changeHeaderViewByState();
                     refresh();
                 }
+                isStartRecorded = false;
                 isFromReleaseToRefresh = false;
                 break;
 
@@ -199,9 +272,13 @@ public class PullListView extends ListView {
                 if (!checkCanPullDown() || state == REFRESHING) {
                     break;
                 }
+                if (!isStartRecorded) {
+                    startY = tempY;
+                    Log.v(TAG, "在开始滑动时记录初始位置");
+                    isStartRecorded = true;
+                }
                 float deltaY = tempY - startY;
                 float realDeltaY = deltaY / RATIO;
-
 
                 // 初始状态下
                 if (state == NONE) {
@@ -216,7 +293,6 @@ public class PullListView extends ListView {
 
                     headView.setPadding(0, -headViewHeight + (int) realDeltaY, 0, 0);
 
-
                     // 下拉到可以进入RELEASE_TO_REFRESH的状态
                     if (realDeltaY >= headViewHeight) {
                         state = RELEASE_TO_REFRESH;
@@ -230,7 +306,6 @@ public class PullListView extends ListView {
                         changeHeaderViewByState();
                         Log.v(TAG, "下拉刷新转变到初始状态");
                     }
-
 
                 }
                 // 可以松手去刷新了
@@ -251,7 +326,6 @@ public class PullListView extends ListView {
                         Log.v(TAG, "由松开刷新状态转变到初始状态");
                     }
                 }
-
 
                 break;
         }
@@ -356,11 +430,54 @@ public class PullListView extends ListView {
         child.measure(childWidthSpec, childHeightSpec);
     }
 
+    /**
+     * 判断是否可以下拉<br/>
+     * 也就是判断ListView是否滑动到了顶部
+     *
+     * @return
+     */
     private boolean checkCanPullDown() {
         if (getFirstVisiblePosition() > 0) {
             return false;
         }
-        return getScrollY() == 0;
+        return !canScroll(-1);
+    }
+
+    /**
+     * 判断是否可以加载更多<br/>
+     * 也就是判断ListView是否滑动到了底部
+     *
+     * @return
+     */
+    private boolean checkCanGetMore() {
+        return canScroll(-1) && !canScroll(1);
+    }
+
+    /**
+     * 判断ListView是否可以滑动
+     *
+     * @param direction
+     * @return
+     */
+    private boolean canScroll(int direction) {
+        final int childCount = getChildCount();
+        if (childCount == 0) {
+            return false;
+        }
+
+        final int firstPosition = getFirstVisiblePosition();
+        final int listPaddingTop = getPaddingTop();
+        final int listPaddingBottom = getPaddingTop();
+        final int itemCount = getAdapter().getCount();
+
+        if (direction > 0) {
+            final int lastBottom = getChildAt(childCount - 1).getBottom();
+            final int lastPosition = firstPosition + childCount;
+            return lastPosition < itemCount || lastBottom > getHeight() - listPaddingBottom;
+        } else {
+            final int firstTop = getChildAt(0).getTop();
+            return firstPosition > 0 || firstTop < listPaddingTop;
+        }
     }
 
     public void setCanRefresh(boolean canRefresh) {
@@ -430,6 +547,55 @@ public class PullListView extends ListView {
     public void setHasMore() {
         if (footView != null) {
             footView.setVisibility(View.VISIBLE);
+        }
+    }
+
+    /**
+     * 重新添加下拉刷新头部
+     */
+    public void reAddPullHeaderView() {
+        if (headView != null) {
+            removeHeaderView(headView);
+            addHeaderView(headView, null, false);
+            addPullHeaderFlag = true;
+        }
+    }
+
+    /**
+     * 添加下拉刷新头部
+     */
+    public void addPullHeaderView() {
+        if (headView != null && !addPullHeaderFlag) {
+            addHeaderView(headView, null, false);
+            addPullHeaderFlag = true;
+        }
+    }
+
+
+    /**
+     * 如果项目中其他地方需要重新设置PullListView的OnScrollListener<br/>
+     * 请在新的listener中onScrollStateChanged方法内调用此方法，保证PullListView正常运行。
+     *
+     * @param view
+     * @param scrollState
+     */
+    public void doOnScrollStateChanged(AbsListView view, int scrollState) {
+    }
+
+    /**
+     * 如果项目中其他地方需要重新设置PullListView的OnScrollListener<br/>
+     * 请在新的listener中onScroll方法内调用此方法，保证PullListView正常运行。
+     *
+     * @param view
+     * @param firstVisibleItem
+     * @param visibleItemCount
+     * @param totalItemCount
+     */
+    public void doOnScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
+        if (getMoreType == GET_MORE_TYPE_AUTO) {
+            if (checkCanGetMore()) {
+                getMore();
+            }
         }
     }
 
