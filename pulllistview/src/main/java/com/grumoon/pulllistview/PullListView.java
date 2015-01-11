@@ -60,7 +60,7 @@ public class PullListView extends ListView {
     // 正在刷新状态
     private final static int REFRESHING = 3;
 
-    // 实际的padding的距离与界面上偏移距离的比例（迟滞比例，越大越难拖动）
+    // 实际上padding的距离与界面上偏移距离的比例（迟滞比例，越大越难拖动）
     private final static float RATIO = 1.7f;
 
     private LayoutInflater inflater;
@@ -71,10 +71,10 @@ public class PullListView extends ListView {
     // 下拉刷新文字
     private TextView tvHeadTitle;
 
-    // 下拉图标
+    // 下拉刷新图标
     private ImageView ivHeadArrow;
 
-    // 正在刷新忙碌框
+    // 刷新中忙碌框
     private ProgressBar pbHeadRefreshing;
 
     // 加载更多视图（底部视图）
@@ -101,7 +101,7 @@ public class PullListView extends ListView {
     /**
      * 标志初始位置已经纪录，一次滑动中纪录一次。
      * 为了更好的处理滑动，根据需要，不在ACTION_DOWN纪录初始位置<br/>
-     * 而是在ACTION_MOVE第一次符合条件的触发中纪录初始位置
+     * 而是在ACTION_MOVE中第一次符合条件的触发中纪录初始位置
      */
     private boolean isStartRecorded = false;
 
@@ -109,11 +109,11 @@ public class PullListView extends ListView {
     private float startY;
 
     /**
-     * 自定义属性，是否由用户自己触发添加下拉刷新Header<br/>
+     * 自定义属性，是否由用户自己控制添加下拉刷新Header<br/>
      * <p/>
-     * 默认为false，下拉刷新头部会在构造函数中添加到PullListView中，作为第一个Header在最上部<br/>
-     * 如果用户添加了额外的Header，额外的Header会在下拉刷新的头部之下。<br/>
-     * 用户有时需要控制添加头部的顺序,可以将此属性设置为true，并在合适的时机，主动调用addPullHeader()方法，去添加下拉刷新Header
+     * 默认为false，下拉刷新Header会在构造函数中添加到PullListView中，作为第一个Header，显示在最上部<br/>
+     * 如果用户添加了额外的Header，额外的Header会在下拉刷新Header之下。<br/>
+     * 用户有时需要控制添加Header的顺序,可以将此属性设置为true，并在合适的时机，主动调用addPullHeader()方法，去添加下拉刷新Header
      */
     private boolean addPullHeaderByUser = false;
 
@@ -159,8 +159,7 @@ public class PullListView extends ListView {
      * @param context
      */
     private void init(Context context, AttributeSet attrs) {
-
-
+        //获取属性
         TypedArray arr = context.obtainStyledAttributes(attrs, R.styleable.PullListView, 0, 0);
         if (arr != null) {
             addPullHeaderByUser = arr.getBoolean(R.styleable.PullListView_addPullHeaderByUser, addPullHeaderByUser);
