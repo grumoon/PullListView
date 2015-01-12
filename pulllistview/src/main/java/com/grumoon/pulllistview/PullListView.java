@@ -116,11 +116,6 @@ public class PullListView extends ListView {
      * 用户有时需要控制添加Header的顺序,可以将此属性设置为true，并在合适的时机，主动调用addPullHeader()方法，去添加下拉刷新Header
      */
     private boolean addPullHeaderByUser = false;
-
-    // 是否已经添加了下拉刷新header标志
-    private boolean addPullHeaderFlag = false;
-
-
     /**
      * 自定义属性<br/>
      * 加载更多触发方式<br/>
@@ -133,6 +128,21 @@ public class PullListView extends ListView {
      * true 表示由松开刷新状态转变而来
      */
     private boolean isFromReleaseToRefresh;
+
+
+    // 是否已经添加了下拉刷新header标志
+    private boolean addPullHeaderFlag = false;
+
+    // 是否已经添加了加载更多footer标志
+    private boolean addGetMoreFooterFlag = false;
+
+    // 是否还有更多数据标志
+    private boolean hasMoreDataFlag = true;
+
+    /**
+     * Scroll时到达最后一个Item的次数，只有第一次能触发自动刷新
+     */
+    private int reachLastPositionCount = 0;
 
     private OnRefreshListener refreshListener;
     private OnGetMoreListener getMoreListener;
@@ -195,7 +205,7 @@ public class PullListView extends ListView {
         footView.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (getMoreType == GET_MORE_TYPE_CLICK) {
+                if (checkCanClickGetMore()) {
                     getMore();
                 }
             }
@@ -386,29 +396,30 @@ public class PullListView extends ListView {
 
     // 刷新
     private void refresh() {
+        //刷新回调
         if (refreshListener != null) {
             refreshListener.onRefresh();
         }
 
+        //加载更多充值
         if (footView != null) {
             footView.setVisibility(View.VISIBLE);
             pbFootRefreshing.setVisibility(View.GONE);
             tvFootTitle.setText("加载更多");
             isGetMoreing = false;
+            hasMoreDataFlag = true;
         }
     }
 
     // 加载更多
     private void getMore() {
-        if (isGetMoreing) {
-            return;
-        }
-
+        //加载更多回调
         if (getMoreListener != null) {
+            isGetMoreing = true;
             pbFootRefreshing.setVisibility(View.VISIBLE);
             tvFootTitle.setText("正在加载...");
             getMoreListener.onGetMore();
-            isGetMoreing = true;
+
         }
     }
 
@@ -443,13 +454,66 @@ public class PullListView extends ListView {
     }
 
     /**
-     * 判断是否可以加载更多<br/>
-     * 也就是判断ListView是否滑动到了底部
+     * 判断是否可以自动加载更多<br/>
      *
      * @return
      */
-    private boolean checkCanGetMore() {
-        return canScroll(-1) && !canScroll(1);
+    private boolean checkCanAutoGetMore() {
+        if (getMoreType != GET_MORE_TYPE_AUTO) {
+            return false;
+        }
+        if (footView == null) {
+            return false;
+        }
+        if (getMoreListener == null) {
+            return false;
+        }
+        if (isGetMoreing) {
+            return false;
+        }
+        if (!hasMoreDataFlag) {
+            return false;
+        }
+        if (getAdapter() == null) {
+            return false;
+        }
+        if (!canScroll(1) && !canScroll(-1)) {
+            return false;
+        }
+        if (getLastVisiblePosition() != getAdapter().getCount() - 1) {
+            return false;
+        }
+        if (reachLastPositionCount != 1) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * 判断是否可以点击加载更多
+     *
+     * @return
+     */
+    private boolean checkCanClickGetMore() {
+        if (getMoreType != GET_MORE_TYPE_CLICK) {
+            return false;
+        }
+        if (footView == null) {
+            return false;
+        }
+        if (getMoreListener == null) {
+            return false;
+        }
+        if (getAdapter() == null) {
+            return false;
+        }
+        if (isGetMoreing) {
+            return false;
+        }
+        if (!hasMoreDataFlag) {
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -510,7 +574,10 @@ public class PullListView extends ListView {
      */
     public void setOnGetMoreListener(OnGetMoreListener getMoreListener) {
         this.getMoreListener = getMoreListener;
-        this.addFooterView(footView);
+        if (!addGetMoreFooterFlag) {
+            addGetMoreFooterFlag = true;
+            this.addFooterView(footView);
+        }
     }
 
     /**
@@ -535,6 +602,7 @@ public class PullListView extends ListView {
      * 不再显示加载更多按钮
      */
     public void setNoMore() {
+        hasMoreDataFlag = false;
         if (footView != null) {
             footView.setVisibility(View.GONE);
         }
@@ -544,6 +612,7 @@ public class PullListView extends ListView {
      * 显示加载更多按钮
      */
     public void setHasMore() {
+        hasMoreDataFlag = true;
         if (footView != null) {
             footView.setVisibility(View.VISIBLE);
         }
@@ -591,12 +660,23 @@ public class PullListView extends ListView {
      * @param totalItemCount
      */
     public void doOnScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
-        if (getMoreType == GET_MORE_TYPE_AUTO) {
-            if (checkCanGetMore()) {
-                getMore();
-            }
+
+        if (getAdapter() == null) {
+            return;
         }
+
+        if (getLastVisiblePosition() == getAdapter().getCount() - 1) {
+            reachLastPositionCount++;
+        } else {
+            reachLastPositionCount = 0;
+        }
+
+
+        if (checkCanAutoGetMore()) {
+            getMore();
+        }
+
+
     }
-
-
 }
+
